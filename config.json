@@ -5,5 +5,7 @@
     "active": true
   },
   "program_loop_pause": 1,
-  "ip_address": "http://192.168.0.213:8581"
+  "ip_address": "http://192.168.0.213:8581",
+  "latitude": 42.361145,
+  "longitude": -71.057083
 }

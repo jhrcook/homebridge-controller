@@ -56,12 +56,8 @@ async fn main() {
     // Create programs.
     let mut lights_off_prog = TurnMorningLightsOffProgram::new(&config.turn_morning_lights_off);
 
-    // DEMO
-    let mut suntimes = SunTimes::new();
-    suntimes.sunrise(&client).await;
-    suntimes.sunset(&client).await;
-    return;
-    // ---------------
+    // Sunrise/sunset data.
+    let mut _suntimes = SunTimes::new(config.longitude, config.latitude);
 
     let mut _ct = 0;
     loop {

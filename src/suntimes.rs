@@ -15,13 +15,17 @@ struct SunriseSunsetResponse {
 }
 
 pub struct SunTimes {
+    longitude: f32,
+    latitude: f32,
     sunrise: Option<DateTime<Local>>,
     sunset: Option<DateTime<Local>>,
 }
 
 impl SunTimes {
-    pub fn new() -> Self {
+    pub fn new(long: f32, lat: f32) -> Self {
         Self {
+            longitude: long,
+            latitude: lat,
             sunrise: None,
             sunset: None,
         }
@@ -30,10 +34,10 @@ impl SunTimes {
 
 impl SunTimes {
     async fn collect_sunrise_sunset_data(&mut self, client: &Client) {
-        let res = client
-            .get("https://api.sunrise-sunset.org/json?lat=36.7201600&lng=-4.4203400&date=today&formatted=0")
-            .send()
-            .await;
+        let mut endpt = "https://api.sunrise-sunset.org/json?".to_string();
+        endpt.push_str(&format!("lat={}&lng={}", self.latitude, self.longitude));
+        endpt.push_str("&date=today&formatted=0");
+        let res = client.get(&endpt).send().await;
         let suntimes_data = match res {
             Ok(dt_res) => dt_res.json::<SunriseSunsetResponse>().await.unwrap(),
             Err(e) => {

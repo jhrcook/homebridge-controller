@@ -12,4 +12,6 @@ pub struct Configuration {
     pub turn_morning_lights_off: TurningMorningLightsOffConfig,
     pub program_loop_pause: f32,
     pub ip_address: String,
+    pub latitude: f32,
+    pub longitude: f32,
 }
