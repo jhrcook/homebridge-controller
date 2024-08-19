@@ -2,6 +2,14 @@
 
 A program to execute custom Homebridge controlling programs.
 
+## Usage
+
+Create a Docker file to install with cargo and execute the single command:
+
+```bash
+RUST_LOG="debug" homebridge-control config.yaml
+```
+
 ## Programs
 
 Global configuration:

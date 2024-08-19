@@ -1,5 +1,7 @@
-use super::TurningMorningLightsOffConfig;
-use chrono::{DateTime, Local, NaiveTime, Timelike, Utc};
+use crate::configuration::TurningMorningLightsOffConfig;
+use crate::homebridge::Homebridge;
+
+use chrono::{DateTime, Local, NaiveTime};
 use log::{debug, error, info};
 
 pub struct TurnMorningLightsOffProgram {
@@ -29,10 +31,10 @@ impl TurnMorningLightsOffProgram {
 }
 
 impl TurnMorningLightsOffProgram {
-    pub fn run(&mut self, client: &reqwest::Client, token: &str) {
+    pub async fn run(&mut self, client: &reqwest::Client, homebridge: &mut Homebridge) {
         info!("Executing `TurnMorningLightsOffProgram`.");
         if !self.active {
-            info!("Program inactive - skipping.");
+            info!("Program inactive - nothing to do.");
             return;
         }
 
@@ -41,15 +43,20 @@ impl TurnMorningLightsOffProgram {
 
         if let Some(last_turned_off) = self.last_turned_light_off {
             if last_turned_off.date_naive() == now.date_naive() {
-                info!("Already turned off the morning light today - skipping.");
+                info!("Already turned off the morning light today - nothing to do.");
                 return;
             }
         }
 
-        if self.off_time < now.time() {
-            info!("After registered off-time.");
-            println!("TURN LIGHT OFF");
-            self.last_turned_light_off = Some(now);
+        if now.time() < self.off_time {
+            info!("Not yet time to turn off light - nothing to do.");
+            return;
         }
+
+        info!("After registered off-time, attempting to turn the light off.");
+        match homebridge.turn_off_bed_light(client).await {
+            Ok(()) => self.last_turned_light_off = Some(now),
+            Err(e) => error!("Error:{:?}", e),
+        };
     }
 }

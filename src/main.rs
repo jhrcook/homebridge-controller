@@ -1,12 +1,16 @@
 use clap::Parser;
-use log::{info, warn};
+use configuration::Configuration;
+use homebridge::Homebridge;
+use log::info;
 use programs::turn_morning_lights_off::TurnMorningLightsOffProgram;
-use programs::Configuration;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Duration;
 use std::{collections::HashMap, fs};
 use tokio::time::sleep;
+
+pub mod configuration;
+pub mod homebridge;
 pub mod programs;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -52,33 +56,21 @@ async fn main() {
     // Create `reqwest` client.
     let client = reqwest::Client::new();
 
-    // Get an access token.
-    let mut map = HashMap::new();
-    map.insert("username", &secrets.username);
-    map.insert("password", &secrets.password);
-    let res = client
-        .post("http://192.168.0.213:8581/api/auth/login")
-        .json(&map)
-        .send()
-        .await
-        .unwrap();
-    let parsed_auth = match res.status() {
-        reqwest::StatusCode::CREATED => match res.json::<HBAuth>().await {
-            Ok(parsed_auth) => {
-                info!("Successfully parsed HB auth.");
-                parsed_auth
-            }
-            Err(e) => panic!("Error parsing auth response: {:?}", e),
-        },
-        other => panic!("Failed authorization: {:?}", other),
-    };
+    // Create Homebridge client.
+    let mut homebridge = Homebridge::new(&config.ip_address, &secrets.username, &secrets.password);
 
+    // Create programs.
     let mut lights_off_prog = TurnMorningLightsOffProgram::new(&config.turn_morning_lights_off);
 
+    let mut _ct = 0;
     loop {
         info!("Running program loop.");
-        lights_off_prog.run(&client, &parsed_auth.access_token);
+        lights_off_prog.run(&client, &mut homebridge).await;
         info!("Finished program loop.");
-        sleep(Duration::from_secs(config.program_loop_pause)).await;
+        sleep(Duration::from_secs_f32(config.program_loop_pause)).await;
+        _ct += 1;
+        if _ct >= 5 {
+            break;
+        }
     }
 }
