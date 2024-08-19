@@ -1,9 +1,33 @@
 use std::{collections::HashMap, fmt::Error};
 
 use chrono::{DateTime, Duration, Local};
-use log::{debug, info};
+use log::{debug, info, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug)]
+struct HBAccessory {
+    uuid: String,
+    #[serde(rename = "uniqueId")]
+    unique_id: String,
+    #[serde(rename = "type")]
+    acc_type: String,
+    #[serde(rename = "humanType")]
+    huamn_type: String,
+    #[serde(rename = "serviceName")]
+    service_name: String,
+    // #[serde(rename = "serviceCharacteristics")]
+    // service_characteristics: Vec<HashMap<String, String>>,
+    // #[serde(rename = "accessoryInformation")]
+    // accessory_information: HashMap<String, String>,
+    // values: HashMap<String, String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(transparent)]
+struct HBAccessories {
+    accessories: Vec<HBAccessory>,
+}
 
 pub struct Homebridge {
     pub ip_address: String,
@@ -78,9 +102,50 @@ impl Homebridge {
 }
 
 impl Homebridge {
+    async fn get_accessory_uuid(&mut self, client: &Client, acc_name: &str) -> Option<String> {
+        if let Some(acc_uuid) = self.accessory_uuids.get(acc_name) {
+            debug!("Found UUID for {} in accessory UUID table.", acc_name);
+            return Some(acc_uuid.clone());
+        };
+
+        let access_token = self.access_token(&client).await;
+
+        let mut endpt = self.ip_address.clone();
+        endpt.push_str("/api/accessories");
+
+        let res = client
+            .get(endpt)
+            .bearer_auth(&access_token)
+            .send()
+            .await
+            .unwrap();
+        let accesories = res.json::<HBAccessories>().await.unwrap();
+        for accessory in accesories.accessories.iter() {
+            let acc_id = accessory.unique_id.clone();
+            if accessory.service_name == acc_name {
+                debug!("Adding UUID for '{}' to accessory UUID table.", acc_name);
+                self.accessory_uuids
+                    .insert(acc_name.to_string(), acc_id.clone());
+                return Some(acc_id);
+            }
+        }
+
+        warn!(
+            "Did not find an accessory with service name '{}'.",
+            acc_name
+        );
+        None
+    }
+
     async fn bed_light_uuid(&mut self, client: &Client) -> String {
         // TODO: get the bed light UUID automatically and store for later in `accessory_uuids`.
-        return "3b41b98a6fc7128c27917ac7cb89395ece21a9a2213ebc9e6dd2d95868b9d0a5".to_string();
+        match self.get_accessory_uuid(client, "Bed Light").await {
+            Some(acc_uuid) => {
+                debug!("Bed Light UUID: '{}'.", acc_uuid);
+                acc_uuid
+            }
+            None => panic!("No UUID for accessory 'Bed Light'."),
+        }
     }
 }
 
@@ -90,7 +155,7 @@ impl Homebridge {
 
         let mut body = HashMap::new();
         body.insert("characteristicType", "On");
-        body.insert("value", "0");
+        body.insert("value", "1");
 
         let access_token = self.access_token(&client).await;
 
