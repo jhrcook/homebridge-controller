@@ -1,6 +1,7 @@
 use clap::Parser;
 use configuration::Configuration;
 use homebridge::Homebridge;
+use homebridge_controller::suntimes::SunTimes;
 use log::info;
 use programs::turn_morning_lights_off::TurnMorningLightsOffProgram;
 use serde::{Deserialize, Serialize};
@@ -17,13 +18,6 @@ pub mod programs;
 struct Secrets {
     username: String,
     password: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct HBAuth {
-    access_token: String,
-    token_type: String,
-    expires_in: u32,
 }
 
 /// Automated programs controlling Homebridge accessories.
@@ -61,6 +55,13 @@ async fn main() {
 
     // Create programs.
     let mut lights_off_prog = TurnMorningLightsOffProgram::new(&config.turn_morning_lights_off);
+
+    // DEMO
+    let mut suntimes = SunTimes::new();
+    suntimes.sunrise(&client).await;
+    suntimes.sunset(&client).await;
+    return;
+    // ---------------
 
     let mut _ct = 0;
     loop {
