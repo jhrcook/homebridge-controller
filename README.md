@@ -4,17 +4,32 @@ A program to execute custom Homebridge controlling programs.
 
 ## Usage
 
-Create a Docker file to install with cargo and execute the single command:
+### Locally
+
+For development:
 
 ```bash
-RUST_LOG="debug" homebridge-control config.yaml
+RUST_LOG="debug" cargo run -- config.yaml
 ```
+
+### Deploy on Raspberry Pi
+
+Download the ['compose.yaml'](./compose.yaml) and ['Dockerfile'](./Dockerfile) and run the container in the background:
+
+```bash
+wget https://github.com/jhrcook/homebridge-controller/raw/main/Dockerfile
+wget https://github.com/jhrcook/homebridge-controller/raw/main/compose.yaml
+docker compose up -d
+```
+
+Currently, the Dockerfile installs the `dev` branch, so you may want to change that.
 
 ## Programs
 
 Global configuration:
 
 - `timezome`: number of hours after GMT
+- `ip_addess`: Homebridge IP address
 
 ### Morning Light
 
@@ -36,6 +51,7 @@ Turn the light off later in the morning.
 Notes
 
 - Make sure to only perform this once per day.
+- Can instead of a specific time set to go off a certain number of minutes after sunrise.
 
 Configuration:
 

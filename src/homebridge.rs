@@ -16,11 +16,6 @@ struct HBAccessory {
     huamn_type: String,
     #[serde(rename = "serviceName")]
     service_name: String,
-    // #[serde(rename = "serviceCharacteristics")]
-    // service_characteristics: Vec<HashMap<String, String>>,
-    // #[serde(rename = "accessoryInformation")]
-    // accessory_information: HashMap<String, String>,
-    // values: HashMap<String, String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

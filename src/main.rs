@@ -4,9 +4,9 @@ use homebridge::Homebridge;
 use log::info;
 use programs::turn_morning_lights_off::TurnMorningLightsOffProgram;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::{collections::HashMap, fs};
 use tokio::time::sleep;
 
 pub mod configuration;
