@@ -1,9 +1,23 @@
-use std::{collections::HashMap, fmt::Error};
+use std::{collections::HashMap, error::Error, fmt::Error};
 
 use chrono::{DateTime, Duration, Local};
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, thiserror::Error)]
+pub enum HBError {
+    #[error("Failed to connect to HB endpoint.")]
+    UnableToConnect(#[from] reqwest::Error),
+    #[error("{0}")]
+    ParsingError(String),
+    #[error("Authentication error with Homebridge: {0}")]
+    AuthError(String),
+    #[error("No access token when one is expected.")]
+    NoAccessToken(),
+    #[error("No accessory registered for '{0}'.")]
+    UnrecognizedAccessory(String),
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct HBAccessory {
@@ -54,7 +68,7 @@ struct HBAuth {
 }
 
 impl Homebridge {
-    async fn renew_access_token(&mut self, client: &reqwest::Client) {
+    async fn renew_access_token(&mut self, client: &reqwest::Client) -> Result<(), HBError> {
         let mut map = HashMap::new();
         map.insert("username", &self.username);
         map.insert("password", &self.password);
@@ -63,23 +77,20 @@ impl Homebridge {
             .json(&map)
             .send()
             .await
-            .unwrap();
+            .map_err(HBError::UnableToConnect)?;
         let parsed_auth = match res.status() {
-            reqwest::StatusCode::CREATED => match res.json::<HBAuth>().await {
-                Ok(parsed_auth) => {
-                    info!("Successfully parsed HB auth.");
-                    parsed_auth
-                }
-                Err(e) => panic!("Error parsing auth response: {:?}", e),
-            },
-            other => panic!("Failed authorization: {:?}", other),
+            reqwest::StatusCode::CREATED => res.json::<HBAuth>().await.map_err(|e| {
+                HBError::ParsingError(format!("Error parsing `HBAuth` data - {}", e))
+            })?,
+            other => return Err(HBError::AuthError(format!("Status code {}", other))),
         };
         self.access_token = Some(parsed_auth.access_token);
         self.access_token_expiration =
-            Some(Local::now() + Duration::seconds(parsed_auth.expires_in as i64 - 60))
+            Some(Local::now() + Duration::seconds(parsed_auth.expires_in as i64 - 60));
+        Ok(())
     }
 
-    pub async fn access_token(&mut self, client: &Client) -> String {
+    pub async fn access_token(&mut self, client: &Client) -> Result<String, HBError> {
         if self.access_token.is_none() | self.access_token_expiration.is_none() {
             debug!("No access token, requesting one.");
             self.renew_access_token(client).await;
@@ -90,20 +101,24 @@ impl Homebridge {
             }
         }
         match self.access_token.clone() {
-            Some(token) => token,
-            None => panic!("No access token available."),
+            Some(token) => Ok(token),
+            None => Err(HBError::NoAccessToken()),
         }
     }
 }
 
 impl Homebridge {
-    async fn get_accessory_uuid(&mut self, client: &Client, acc_name: &str) -> Option<String> {
+    async fn get_accessory_uuid(
+        &mut self,
+        client: &Client,
+        acc_name: &str,
+    ) -> Result<String, HBError> {
         if let Some(acc_uuid) = self.accessory_uuids.get(acc_name) {
             debug!("Found UUID for {} in accessory UUID table.", acc_name);
-            return Some(acc_uuid.clone());
+            return Ok(acc_uuid.clone());
         };
 
-        let access_token = self.access_token(&client).await;
+        let access_token = self.access_token(&client).await?;
 
         let mut endpt = self.ip_address.clone();
         endpt.push_str("/api/accessories");
@@ -113,50 +128,45 @@ impl Homebridge {
             .bearer_auth(&access_token)
             .send()
             .await
-            .unwrap();
-        let accesories = res.json::<HBAccessories>().await.unwrap();
+            .map_err(HBError::UnableToConnect)?;
+        let accesories = res.json::<HBAccessories>().await.map_err(|e| {
+            HBError::ParsingError(format!("Error parsing `HBAccessories` data - {}", e))
+        })?;
         for accessory in accesories.accessories.iter() {
             let acc_id = accessory.unique_id.clone();
             if accessory.service_name == acc_name {
                 debug!("Adding UUID for '{}' to accessory UUID table.", acc_name);
                 self.accessory_uuids
                     .insert(acc_name.to_string(), acc_id.clone());
-                return Some(acc_id);
+                return Ok(acc_id);
             }
         }
 
-        warn!(
+        error!(
             "Did not find an accessory with service name '{}'.",
             acc_name
         );
-        None
+        Err(HBError::UnrecognizedAccessory(acc_name.to_string()))
     }
 
-    async fn bed_light_uuid(&mut self, client: &Client) -> String {
-        // TODO: get the bed light UUID automatically and store for later in `accessory_uuids`.
-        match self.get_accessory_uuid(client, "Bed Light").await {
-            Some(acc_uuid) => {
-                debug!("Bed Light UUID: '{}'.", acc_uuid);
-                acc_uuid
-            }
-            None => panic!("No UUID for accessory 'Bed Light'."),
-        }
+    async fn bed_light_uuid(&mut self, client: &Client) -> Result<String, HBError> {
+        self.get_accessory_uuid(client, "Bed Light").await
     }
 }
 
 impl Homebridge {
-    pub async fn turn_off_bed_light(&mut self, client: &Client) -> Result<(), Error> {
+    pub async fn turn_off_bed_light(&mut self, client: &Client) -> Result<(), HBError> {
         info!("Turning off bed light.");
 
         let mut body = HashMap::new();
         body.insert("characteristicType", "On");
         body.insert("value", "1");
 
-        let access_token = self.access_token(&client).await;
+        let access_token = self.access_token(&client).await?;
 
         let mut endpt = self.ip_address.clone();
         endpt.push_str("/api/accessories/");
-        endpt.push_str(&self.bed_light_uuid(client).await);
+        endpt.push_str(&self.bed_light_uuid(client).await?);
 
         let res = client
             .put(endpt)
@@ -164,7 +174,7 @@ impl Homebridge {
             .json(&body)
             .send()
             .await
-            .unwrap();
+            .map_err(HBError::UnableToConnect)?;
         debug!("Changing light on/off status code: {}", res.status());
         Ok(())
     }
