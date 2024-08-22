@@ -73,7 +73,6 @@ async fn main() -> ExitCode {
     // Sunrise/sunset data.
     let mut _suntimes = SunTimes::new(config.longitude, config.latitude);
 
-    let mut _ct = 0;
     loop {
         info!("Running program loop.");
         match lights_off_prog.run(&client, &mut homebridge).await {
@@ -82,10 +81,5 @@ async fn main() -> ExitCode {
         };
         info!("Finished program loop.");
         sleep(Duration::from_secs_f32(config.program_loop_pause)).await;
-        _ct += 1;
-        if _ct >= 2 {
-            break;
-        }
     }
-    ExitCode::from(0)
 }
