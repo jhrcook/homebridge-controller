@@ -2,14 +2,14 @@ use clap::Parser;
 use configuration::Configuration;
 use homebridge::Homebridge;
 use homebridge_controller::suntimes::SunTimes;
-use log::info;
+use log::{error, info};
 use programs::turn_morning_lights_off::TurnMorningLightsOffProgram;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::process::ExitCode;
 use std::time::Duration;
 use tokio::time::sleep;
-
 pub mod configuration;
 pub mod homebridge;
 pub mod programs;
@@ -32,7 +32,7 @@ struct Arguments {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> ExitCode {
     env_logger::init();
 
     let args = Arguments::parse();
@@ -52,9 +52,23 @@ async fn main() {
 
     // Create Homebridge client.
     let mut homebridge = Homebridge::new(&config.ip_address, &secrets.username, &secrets.password);
+    match homebridge.check_connection(&client).await {
+        Ok(()) => info!("Test Homebridge connection successful."),
+        Err(e) => {
+            error!("Could not connect to Homebridge: {}", e);
+            return ExitCode::from(4);
+        }
+    };
 
     // Create programs.
-    let mut lights_off_prog = TurnMorningLightsOffProgram::new(&config.turn_morning_lights_off);
+    let mut lights_off_prog =
+        match TurnMorningLightsOffProgram::new(&config.turn_morning_lights_off) {
+            Ok(p) => p,
+            Err(e) => {
+                error!("{}", e);
+                return ExitCode::from(4);
+            }
+        };
 
     // Sunrise/sunset data.
     let mut _suntimes = SunTimes::new(config.longitude, config.latitude);
@@ -62,12 +76,16 @@ async fn main() {
     let mut _ct = 0;
     loop {
         info!("Running program loop.");
-        lights_off_prog.run(&client, &mut homebridge).await;
+        match lights_off_prog.run(&client, &mut homebridge).await {
+            Ok(()) => info!("Successfully executed lights-off program."),
+            Err(e) => error!("Error running programing to turn morning lights off: {}", e),
+        };
         info!("Finished program loop.");
         sleep(Duration::from_secs_f32(config.program_loop_pause)).await;
         _ct += 1;
-        if _ct >= 5 {
+        if _ct >= 2 {
             break;
         }
     }
+    ExitCode::from(0)
 }

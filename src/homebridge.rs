@@ -1,9 +1,8 @@
-use std::{collections::HashMap, error::Error, fmt::Error};
-
 use chrono::{DateTime, Duration, Local};
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HBError {
@@ -68,12 +67,25 @@ struct HBAuth {
 }
 
 impl Homebridge {
+    pub async fn check_connection(&self, client: &reqwest::Client) -> Result<(), HBError> {
+        _ = client
+            .post(&self.ip_address)
+            .send()
+            .await
+            .map_err(HBError::UnableToConnect)?;
+        Ok(())
+    }
+}
+
+impl Homebridge {
     async fn renew_access_token(&mut self, client: &reqwest::Client) -> Result<(), HBError> {
         let mut map = HashMap::new();
         map.insert("username", &self.username);
         map.insert("password", &self.password);
+        let mut endpt = self.ip_address.clone();
+        endpt.push_str("/api/auth/login");
         let res = client
-            .post("http://192.168.0.213:8581/api/auth/login")
+            .post(endpt)
             .json(&map)
             .send()
             .await
@@ -93,11 +105,11 @@ impl Homebridge {
     pub async fn access_token(&mut self, client: &Client) -> Result<String, HBError> {
         if self.access_token.is_none() | self.access_token_expiration.is_none() {
             debug!("No access token, requesting one.");
-            self.renew_access_token(client).await;
+            self.renew_access_token(client).await?;
         } else if let Some(access_token_expiration) = self.access_token_expiration {
             if access_token_expiration < Local::now() {
                 debug!("Access token expired, requesting new one.");
-                self.renew_access_token(client).await;
+                self.renew_access_token(client).await?;
             }
         }
         match self.access_token.clone() {
@@ -160,7 +172,7 @@ impl Homebridge {
 
         let mut body = HashMap::new();
         body.insert("characteristicType", "On");
-        body.insert("value", "1");
+        body.insert("value", "0");
 
         let access_token = self.access_token(&client).await?;
 
