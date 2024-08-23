@@ -1,9 +1,9 @@
+use crate::configuration::Configuration;
+use crate::homebridge::Homebridge;
+use crate::programs::turn_morning_lights_off::TurnMorningLightsOffProgram;
+use crate::suntimes::SunTimes;
 use clap::Parser;
-use configuration::Configuration;
-use homebridge::Homebridge;
-use homebridge_controller::suntimes::SunTimes;
 use log::{error, info};
-use programs::turn_morning_lights_off::TurnMorningLightsOffProgram;
 use serde::{Deserialize, Serialize};
 use std::env::VarError;
 use std::path::PathBuf;
@@ -11,9 +11,11 @@ use std::process::ExitCode;
 use std::time::Duration;
 use std::{env, fs};
 use tokio::time::sleep;
+
 pub mod configuration;
 pub mod homebridge;
 pub mod programs;
+pub mod suntimes;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Secrets {
@@ -84,11 +86,14 @@ async fn main() -> ExitCode {
         };
 
     // Sunrise/sunset data.
-    let mut _suntimes = SunTimes::new(config.longitude, config.latitude);
+    let mut suntimes = SunTimes::new(config.longitude, config.latitude);
 
     loop {
         info!("Running program loop.");
-        match lights_off_prog.run(&client, &mut homebridge).await {
+        match lights_off_prog
+            .run(&client, &mut homebridge, &mut suntimes)
+            .await
+        {
             Ok(()) => info!("Successfully executed lights-off program."),
             Err(e) => error!("Error running programing to turn morning lights off: {}", e),
         };

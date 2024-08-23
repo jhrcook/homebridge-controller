@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TurningMorningLightsOffConfig {
     pub duration: u32,
-    pub off_time: String,
+    pub off_time: Option<String>,
+    pub after_sunrise: Option<i64>,
     pub active: bool,
 }
 

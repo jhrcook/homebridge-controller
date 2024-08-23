@@ -1,5 +1,5 @@
-use chrono::{DateTime, Local, NaiveTime, Utc};
-use log::{debug, error, info};
+use chrono::{DateTime, Local, Utc};
+use log::{debug, error};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
