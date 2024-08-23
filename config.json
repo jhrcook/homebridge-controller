@@ -1,7 +1,8 @@
 {
   "turn_morning_lights_off": {
     "duration": 5,
-    "off_time": "6:20:00",
+    "off_time": null,
+    "after_sunrise": 45,
     "active": true
   },
   "program_loop_pause": 1,

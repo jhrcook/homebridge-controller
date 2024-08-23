@@ -1,3 +1,6 @@
 services:
   homebridge-controller:
     build: .
+    environment:
+      HB_USER: "<user>"
+      HB_PASSWORD: "<password>"

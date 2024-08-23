@@ -17,12 +17,18 @@ RUST_LOG="debug" cargo run -- config.yaml
 Download the ['compose.yaml'](./compose.yaml) and ['Dockerfile'](./Dockerfile) and run the container in the background:
 
 ```bash
+# Docker files:
 wget https://github.com/jhrcook/homebridge-controller/raw/main/Dockerfile
 wget https://github.com/jhrcook/homebridge-controller/raw/main/compose.yaml
+
+# Configuration file:
+wget https://github.com/jhrcook/homebridge-controller/raw/main/config.json
+
+# Build docker
 docker compose up -d
 ```
 
-Currently, the Dockerfile installs the `dev` branch, so you may want to change that.
+Make sure to set the Homebridge authentication environment variables in the Docker compose file.
 
 ## Programs
 
