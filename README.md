@@ -1,5 +1,7 @@
 # Personal Homebridge Controller
 
+[![Rust](https://github.com/jhrcook/homebridge-controller/actions/workflows/rust.yml/badge.svg)](https://github.com/jhrcook/homebridge-controller/actions/workflows/rust.yml)
+
 A program to execute custom Homebridge controlling programs.
 
 ## Usage
