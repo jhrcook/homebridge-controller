@@ -22,14 +22,15 @@ Download the ['compose.yaml'](./compose.yaml) and ['Dockerfile'](./Dockerfile) a
 wget https://github.com/jhrcook/homebridge-controller/raw/main/Dockerfile
 wget https://github.com/jhrcook/homebridge-controller/raw/main/compose.yaml
 
-# Configuration file:
+#> Set the secrets in the "compose.yaml" file.
+
+# Configuration files:
 wget https://github.com/jhrcook/homebridge-controller/raw/main/config.json
+wget https://github.com/jhrcook/homebridge-controller/raw/main/log4rs.yaml
 
 # Build docker
 docker compose up -d
 ```
-
-Make sure to set the Homebridge authentication environment variables in the Docker compose file.
 
 ## Programs
 
