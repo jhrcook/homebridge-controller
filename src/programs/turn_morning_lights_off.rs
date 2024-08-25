@@ -1,8 +1,10 @@
 use crate::homebridge::Homebridge;
-use crate::suntimes::SunTimes;
+use crate::suntimes::{SunTimes, SuntimesError};
 use crate::{configuration::TurningMorningLightsOffConfig, homebridge::HBError};
 use chrono::{DateTime, Duration, Local, NaiveTime};
+use core::time;
 use log::{debug, error, info, warn};
+use std::thread;
 
 #[derive(thiserror::Error, Debug)]
 pub enum TurnMorningLightsOffProgramError {
@@ -10,6 +12,10 @@ pub enum TurnMorningLightsOffProgramError {
     ParseError(String),
     #[error("Error during Homebridge interaction.")]
     HomebridgeInteraction(#[from] HBError),
+    #[error("{0}")]
+    ConfigError(String),
+    #[error("{0}")]
+    NoSunTimesData(#[from] SuntimesError),
 }
 
 pub struct TurnMorningLightsOffProgram {
@@ -17,6 +23,7 @@ pub struct TurnMorningLightsOffProgram {
     pub off_time: Option<NaiveTime>,
     pub after_sunrise: Option<i64>,
     pub active: bool,
+    pub last_call_after_scheduled_off: u32,
     last_turned_light_off: Option<DateTime<Local>>,
 }
 
@@ -48,6 +55,7 @@ impl TurnMorningLightsOffProgram {
             duration: config.duration,
             active: config.active,
             last_turned_light_off: Option::None,
+            last_call_after_scheduled_off: config.last_call_after_scheduled_off,
         })
     }
 }
@@ -75,25 +83,46 @@ impl TurnMorningLightsOffProgram {
             }
         }
 
-        if let Some(off_time) = self.off_time {
-            if now.time() < off_time {
-                debug!("Not yet time to turn off light - nothing to do.");
-                return Ok(());
+        // Calculate the off-time depending on the configuration.
+        let off_time = match (self.off_time, self.after_sunrise) {
+            (Some(ot), _) => ot,
+            (None, Some(after_sunrise)) => {
+                let sunrise = suntimes
+                    .sunrise(client)
+                    .await
+                    .map_err(TurnMorningLightsOffProgramError::NoSunTimesData)?;
+                debug!("Sunrise: {}", sunrise);
+                sunrise.time() + Duration::minutes(after_sunrise)
             }
-        } else if let Some(after_sunrise) = self.after_sunrise {
-            let sunrise = suntimes.sunrise(client).await;
-            if now.time() < sunrise.time() + Duration::minutes(after_sunrise) {
-                debug!("Not yet time to turn off light - nothing to do.");
-                return Ok(());
+            (None, None) => {
+                return Err(TurnMorningLightsOffProgramError::ConfigError(
+                    "Both off-times are None.".to_string(),
+                ))
             }
+        };
+        debug!("Off-time: {}", off_time);
+
+        if now.time() < off_time {
+            debug!("Not yet time to turn off light - nothing to do.");
+            return Ok(());
+        }
+        if (off_time + Duration::minutes(self.last_call_after_scheduled_off as i64)) < now.time() {
+            debug!("After last-call time - nothing to do.");
+            return Ok(());
         }
 
         info!("After registered off-time, attempting to turn the light off.");
         homebridge
-            .turn_off_bed_light(client)
+            .turn_bedlight_off(client)
             .await
             .map_err(TurnMorningLightsOffProgramError::HomebridgeInteraction)?;
-        self.last_turned_light_off = Some(now);
+        thread::sleep(time::Duration::from_millis(250));
+        if homebridge.bed_light_is_off(client).await? {
+            info!("Successfully turned OFF bed light.");
+            self.last_turned_light_off = Some(now);
+        } else {
+            warn!("The bed light is still ON after switching OFF.");
+        }
         Ok(())
     }
 }
