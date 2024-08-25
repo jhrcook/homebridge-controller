@@ -42,7 +42,7 @@ struct Arguments {
 
 #[tokio::main]
 async fn main() -> ExitCode {
-    env_logger::init();
+    log4rs::init_file("log4rs.yaml", Default::default()).unwrap();
 
     let args = Arguments::parse();
     info!("Parsed CLI arguments.");

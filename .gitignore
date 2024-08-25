@@ -21,3 +21,5 @@ Cargo.lock
 
 .secrets
 res.json
+*.log
+log-archive/*
