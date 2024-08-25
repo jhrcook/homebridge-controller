@@ -5,6 +5,7 @@ WORKDIR /usr/src/homebrdige-controller
 ENV RUST_LOG=debug
 
 COPY config.json config.json
+COPY log4rs.yaml log4rs.yaml
 
 RUN apk update
 RUN apk add --no-cache musl-dev pkgconf libressl-dev
