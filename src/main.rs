@@ -1,5 +1,6 @@
 use crate::configuration::Configuration;
 use crate::homebridge::Homebridge;
+use crate::programs::control_evening_lights::ControlEveningLightsProgram;
 use crate::programs::turn_morning_lights_off::TurnMorningLightsOffProgram;
 use crate::suntimes::SunTimes;
 use clap::Parser;
@@ -85,6 +86,15 @@ async fn main() -> ExitCode {
             }
         };
 
+    let mut evening_lights_prog =
+        match ControlEveningLightsProgram::new(&config.control_evening_lights) {
+            Ok(p) => p,
+            Err(e) => {
+                error!("{}", e);
+                return ExitCode::from(4);
+            }
+        };
+
     // Sunrise/sunset data.
     let mut suntimes = SunTimes::new(config.longitude, config.latitude);
 
@@ -96,6 +106,13 @@ async fn main() -> ExitCode {
         {
             Ok(()) => info!("Successfully executed lights-off program."),
             Err(e) => error!("Error running programing to turn morning lights off: {}", e),
+        };
+        match evening_lights_prog
+            .run(&client, &mut homebridge, &mut suntimes)
+            .await
+        {
+            Ok(()) => info!("Successfully executed evening lights control program."),
+            Err(e) => error!("Error running programing to control evening lights: {}", e),
         };
         info!("Finished program loop.");
         sleep(Duration::from_secs_f32(config.program_loop_pause)).await;

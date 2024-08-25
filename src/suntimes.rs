@@ -3,6 +3,18 @@ use log::{debug, error};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+#[derive(thiserror::Error, Debug)]
+pub enum SuntimesError {
+    #[error("{0}")]
+    ParseError(String),
+    // #[error("Error during Homebridge interaction.")]
+    // HomebridgeInteraction(#[from] HBError),
+    #[error("Failed to connect to HB endpoint.")]
+    FailedConnection(#[from] reqwest::Error),
+    #[error("{0}")]
+    FailedAssumption(String),
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct SunriseSunsetData {
     sunrise: String,
@@ -33,7 +45,7 @@ impl SunTimes {
 }
 
 impl SunTimes {
-    async fn collect_sunrise_sunset_data(&mut self, client: &Client) {
+    async fn collect_sunrise_sunset_data(&mut self, client: &Client) -> Result<(), SuntimesError> {
         let mut endpt = "https://api.sunrise-sunset.org/json?".to_string();
         endpt.push_str(&format!("lat={}&lng={}", self.latitude, self.longitude));
         endpt.push_str("&date=today&formatted=0");
@@ -45,48 +57,62 @@ impl SunTimes {
                 panic!("{}", e);
             }
         };
-        debug!("suntimes_data:\n{:?}", suntimes_data);
         let sunrise = suntimes_data
             .results
             .sunrise
             .parse::<DateTime<Utc>>()
-            .unwrap();
+            .map_err(|e| {
+                SuntimesError::ParseError(format!("Error parsing sunrise datetime: {}", e))
+            })?;
         debug!("Sunrise: {:?}", sunrise);
         let sunset = suntimes_data
             .results
             .sunset
             .parse::<DateTime<Utc>>()
-            .unwrap();
+            .map_err(|e| {
+                SuntimesError::ParseError(format!("Error parsing sunset datetime: {}", e))
+            })?;
         debug!("Sunset: {:?}", sunset);
         self.sunrise = Some(DateTime::from(sunrise));
         self.sunset = Some(DateTime::from(sunset));
+        Ok(())
     }
 
-    pub async fn sunrise(&mut self, client: &Client) -> DateTime<Local> {
+    pub async fn sunrise(&mut self, client: &Client) -> Result<DateTime<Local>, SuntimesError> {
         if let Some(sunrise) = self.sunrise {
             if sunrise.date_naive() == Local::now().date_naive() {
-                return sunrise;
+                return Ok(sunrise);
             }
             debug!("Sunrise data stale.")
         }
-        self.collect_sunrise_sunset_data(client).await;
+        self.collect_sunrise_sunset_data(client).await?;
         match self.sunrise {
-            Some(sunrise) => sunrise,
-            None => panic!("Could not collect sunrise data."),
+            Some(sunrise) => Ok(sunrise),
+            None => {
+                error!("Sunrise times should be set, but are still None.");
+                Err(SuntimesError::FailedAssumption(
+                    "Sunrise times should be set at this point.".to_string(),
+                ))
+            }
         }
     }
 
-    pub async fn sunset(&mut self, client: &Client) -> DateTime<Local> {
+    pub async fn sunset(&mut self, client: &Client) -> Result<DateTime<Local>, SuntimesError> {
         if let Some(sunset) = self.sunset {
             if sunset.date_naive() == Local::now().date_naive() {
-                return sunset;
+                return Ok(sunset);
             }
             debug!("Sunset data stale.")
         }
-        self.collect_sunrise_sunset_data(client).await;
+        self.collect_sunrise_sunset_data(client).await?;
         match self.sunset {
-            Some(sunset) => sunset,
-            None => panic!("Could not collect sunset data."),
+            Some(sunset) => Ok(sunset),
+            None => {
+                error!("Sunrise times should be set, but are still None.");
+                Err(SuntimesError::FailedAssumption(
+                    "Sunrise times should be set at this point.".to_string(),
+                ))
+            }
         }
     }
 }

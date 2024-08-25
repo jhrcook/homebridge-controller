@@ -9,6 +9,7 @@ A program to execute custom Homebridge controlling programs.
 For development:
 
 ```bash
+. ./.secrets
 RUST_LOG="debug" cargo run -- config.yaml
 ```
 
