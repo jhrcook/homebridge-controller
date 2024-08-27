@@ -4,3 +4,6 @@ services:
     environment:
       HB_USER: "<user>"
       HB_PASSWORD: "<password>"
+      TZ: "America/New_York"
+    volumes:
+      - ./logs:/usr/src/homebrdige-controller/logs

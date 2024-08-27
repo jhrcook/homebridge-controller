@@ -12,7 +12,7 @@ For development:
 
 ```bash
 . ./.secrets
-RUST_LOG="debug" cargo run -- config.yaml
+cargo run -- config.yaml
 ```
 
 ### Deploy on Raspberry Pi
