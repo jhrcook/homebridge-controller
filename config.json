@@ -3,18 +3,19 @@
     "active": true,
     "duration": 5,
     "off_time": null,
-    "after_sunrise": 30,
+    "after_sunrise": 15,
     "last_call_after_scheduled_off": 10
   },
   "control_evening_lights": {
-    "minutes_before_sunset_start": 45,
+    "minutes_before_sunset_start": 60,
     "minutes_after_sunset_peak": 15,
-    "minutes_after_sunset_finish": 60,
-    "start_brightness": 30,
+    "minutes_after_sunset_finish": 40,
+    "start_brightness": 10,
     "max_brightness": 100,
-    "final_brightness": 75
+    "final_brightness": 40
   },
-  "program_loop_pause": 30,
+  "program_loop_pause": 3,
+  "n_cycles_reload_config": 6,
   "ip_address": "http://192.168.0.213:8581",
   "latitude": 42.361145,
   "longitude": -71.057083
