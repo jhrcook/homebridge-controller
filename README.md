@@ -34,6 +34,21 @@ wget https://github.com/jhrcook/homebridge-controller/raw/main/log4rs.yaml
 docker compose up -d
 ```
 
+### Changing the configuration
+
+You can change the configuration and copy the updated file into the running Docker container:
+
+```bash
+docker cp ./config.json <CONTAINER_NAME>:/usr/src/homebrdige-controller/config.json
+```
+You can find the container name using the following command (last column):
+
+```bash
+docker ps
+#> CONTAINER ID   IMAGE                       COMMAND                  CREATED              STATUS         PORTS     NAMES
+#> 299403e97023   homebridge-controller-app   "homebridge-controll…"   About a minute ago   Up 2 seconds             homebridge-controller-app-1
+```
+
 ## Programs
 
 Global configuration:
