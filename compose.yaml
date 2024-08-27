@@ -1,5 +1,5 @@
 services:
-  homebridge-controller:
+  app:
     build: .
     environment:
       HB_USER: "<user>"
